@@ -1,0 +1,91 @@
+# NVIDIA GR00T N1.7 on NukeTorch
+
+NVIDIA's GR00T N1.7 robot policy (fine-tuned on LIBERO-10) served on one Mac with NukeTorch N1.0.4, beside a text model. One request is one observation (two camera frames, the robot's state and an instruction); the answer is one chunk of actions. Requests that are waiting when the model is free are answered together, up to 16 in one model call.
+
+**[Video demo](https://youtu.be/A4xSc33-w7s)** · **[Detailed benchmark report](https://nuketorch.ai/reports/groot-four-m5-max.pdf)**
+
+## Benchmark summary
+
+One MacBook Pro M5 Max with 48 GB, a text model loaded beside the policy. Measured beside a text model that is not the one in the commands below; speed beside the 35B was not measured. The built-in benchmark sends one observation it generates itself (two 256×256 camera frames of noise, a state vector and an instruction), so it needs no data set. Best of five runs.
+
+| Test | M5 Max |
+|---|---:|
+| One request at a time (median of 256) | 44.8 ms |
+| 16 clients at once: chunks of actions a second | 37.2 |
+| Response time under that load (median) | 428 ms |
+
+On an earlier build we also replayed the recorded observations of our four-Mac report (LIBERO-10 episode 0, two cameras) through this server on one of the report's Macs, with our earlier test scripts. Those scripts are not in the package, so these rows cannot be repeated with the built-in benchmark:
+
+| Test | The report, per Mac | One Mac, this server |
+|---|---:|---:|
+| 48 clients at once, 2 cameras: chunks a second (completions in a 10-second window) | 38.4 | 38.4 |
+| Response time under that load: half of the requests within | 1,275 ms | 1,280 ms |
+| One request at a time | 44.3 ms | 45.0 ms |
+
+- **Same answers.** For the same observation and the same seed the server returns the same actions, bit for bit, run after run. A request answered alone and the same request answered inside a batch differ in the last bits; the benchmark knows both answers and its report says how many were answered alone.
+- **Memory.** GR00T adds about 5.5 GB beside a text model (the report's 8.04 GiB is the worker process). Loading it alone is not in this release.
+- No robot is moved and no simulator runs. The numbers say how fast the policy answers, not how well a robot does its task.
+- Let the Mac cool before you measure: in our runs a batch of 16 requests took 406 ms on a rested Mac and 480 ms thirty seconds into a run on a warm one.
+
+**Paper:** [GR00T N1.7 Concurrent Policies on Four M5 Max Macs](https://nuketorch.ai/reports/groot-four-m5-max.pdf) (our four-Mac report: 152 policy chunks a second across four MacBook Pros; this package runs on one Mac and lets you check the per-Mac part).
+
+## Install
+
+Use `curl`, not a browser. This release is not yet notarized by Apple, and macOS blocks un-notarized programs downloaded with a browser.
+
+```sh
+curl -fsSL https://github.com/NukeTorch/nuketorch/releases/download/n1.0.4/install.sh | sh
+```
+
+The script downloads the package, checks its SHA-256, shows the license and asks you to accept it, then unpacks it into `~/NukeTorch`. Nothing is installed outside that folder. To remove NukeTorch, delete the folder.
+
+Requirements: a Mac with an M5 Max or M4 Max chip and macOS 27.2 or later. macOS 26 is not supported. Other chips: coming. We tested on 48 GB.
+
+## Get the models
+
+The policy bundle holds its makers' files unchanged: NVIDIA's checkpoint from the report (`nvidia/gr00t17-lerobot-libero_10-640`), NVIDIA's base model configuration, and the tokenizer files from Qwen that GR00T's backbone uses. The policy runs beside a text model, so download one too.
+
+The first line gives you the `hf` command (or: `brew install hf`).
+
+```sh
+python3 -m venv ~/NukeTorch/hf-env && ~/NukeTorch/hf-env/bin/pip install -U huggingface_hub
+~/NukeTorch/hf-env/bin/hf download NukeTorch/GR00T-N1.7-LIBERO-10 --local-dir ~/NukeTorch/models/GR00T-N1.7-LIBERO-10
+~/NukeTorch/hf-env/bin/hf download NukeTorch/Qwen3.6-35B-A3B-4bit-DFlash2 --local-dir ~/NukeTorch/models/Qwen3.6-35B-A3B-4bit-DFlash2
+```
+
+Model card: https://huggingface.co/NukeTorch/GR00T-N1.7-LIBERO-10
+
+## Run
+
+```sh
+cd ~/NukeTorch/nuketorch-n1.0.4-macos-arm64
+./nuketorch-serve http \
+  --model ~/NukeTorch/models/Qwen3.6-35B-A3B-4bit-DFlash2/Qwen3.6-35B-A3B-4bit \
+  --draft-model ~/NukeTorch/models/Qwen3.6-35B-A3B-4bit-DFlash2/Qwen3.6-35B-A3B-DFlash2 \
+  --policy-model ~/NukeTorch/models/GR00T-N1.7-LIBERO-10 \
+  --port 8080
+```
+
+The route is `POST /v1/nuketorch/policy/act`. It takes observations already prepared for the model; a route that takes raw camera frames comes in an update.
+
+## Repeat our numbers
+
+```sh
+./nuketorch-serve bench ~/NukeTorch/models/GR00T-N1.7-LIBERO-10 \
+  --text-model ~/NukeTorch/models/Qwen3.6-35B-A3B-4bit-DFlash2
+./nuketorch-serve report
+```
+
+`report` sets your run beside ours. Other commands: `bench --list` (what each test does), `bench --inputs` (every stored input with its license and source), `selftest` (the robot-policy kernels are listed as not covered in this release).
+
+You are responsible for the safe use of this model with a real robot.
+
+## License
+
+NukeTorch N is free for personal use, schools and universities, and businesses and other organizations (not government entities or international organizations) that with their affiliates have less than US$10 million in revenue and fewer than 250 people, on up to 250 machines, each working alone. Everyone else may evaluate it for 30 days, then needs a commercial license: contact@nuketorch.ai. You may not offer its function itself to others: access to its API, or running, serving or fine-tuning models for them. Terms are in [LICENSE.md](https://github.com/NukeTorch/nuketorch/blob/n1.0.4/LICENSE.md).
+
+GR00T N1.7 is licensed by NVIDIA Corporation under the NVIDIA Open Model License. Built on NVIDIA Cosmos.
+
+Names of models and engines belong to their makers; their makers do not endorse NukeTorch.
+
+**Powered by NukeTorch** · https://nuketorch.ai · Back to [NukeTorch/nuketorch](https://github.com/NukeTorch/nuketorch)
