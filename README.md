@@ -1,6 +1,6 @@
 # NVIDIA GR00T N1.7 on NukeTorch
 
-NVIDIA's GR00T N1.7 robot policy (fine-tuned on LIBERO-10) served on one Mac with NukeTorch N1.0.4, beside a text model. One request is one observation (two camera frames, the robot's state and an instruction); the answer is one chunk of actions. Requests that are waiting when the model is free are answered together, up to 16 in one model call.
+NVIDIA's GR00T N1.7 robot policy (fine-tuned on LIBERO-10) served on one Mac with NukeTorch 1.0.4, beside a text model. One request is one observation (two camera frames, the robot's state and an instruction); the answer is one chunk of actions. Requests that are waiting when the model is free are answered together, up to 16 in one model call.
 
 **[Video demo](https://youtu.be/A4xSc33-w7s)** · **[Detailed benchmark report](https://nuketorch.ai/reports/groot-four-m5-max.pdf)**
 
@@ -28,6 +28,22 @@ On an earlier build we also replayed the recorded observations of our four-Mac r
 - Let the Mac cool before you measure: in our runs a batch of 16 requests took 406 ms on a rested Mac and 480 ms thirty seconds into a run on a warm one.
 
 **Paper:** [GR00T N1.7 Concurrent Policies on Four M5 Max Macs](https://nuketorch.ai/reports/groot-four-m5-max.pdf) (our four-Mac report: 152 policy chunks a second across four MacBook Pros; this package runs on one Mac and lets you check the per-Mac part).
+
+## Multi Machines: NukeTorch Enterprise
+
+Our pipeline parallelism spreads one model across many machines connected by a single cable in between. We used it for Qwen3.5-9B LoRA fine-tuning and inference of a larger model; the fine-tuning reached 93.0% pipeline efficiency against four single machines.
+
+| Benchmark | Performance | Compared with |
+|---|---:|---|
+| **Robotics:** GR00T N1.7, four M5 Max, 192 concurrent policies | **152.07** chunks/s | 2.45× the fastest published H100 result (62.2 chunks/s)¹ |
+| **Robotics:** GR00T N1.7, one MacBook Pro M5 Max, one request at a time | **22.6** chunks/s (44.34 ms per call) | 0.63× NVIDIA's own H100 figure (35.9 chunks/s)² |
+
+¹ The H100 figures are published results timed one request at a time; no H100 rate with many requests at once is published. Ours: 48 clients per Mac, FP16; a longer run measured 136.83 chunks/s.
+² Ours: one request at a time; the test pooled 200 timed calls across 10 fresh processes, with 100 warm-up calls excluded; camera preparation and action decoding are included. NVIDIA's: its TensorRT pipeline on an H100 80 GB, per its hardware recommendation guide.
+
+NukeTorch Enterprise P1.0.0 (Multi Machines) is by invitation. Ask for an evaluation license:
+
+[![Request a NukeTorch Enterprise evaluation license](https://img.shields.io/badge/NukeTorch%20Enterprise-Request%20an%20evaluation%20license-121F47?style=for-the-badge)](mailto:contact@nuketorch.ai?subject=NukeTorch%20Enterprise%20evaluation%20request&body=Name%3A%0AOrganization%3A%0AMacs%20%28how%20many%2C%20which%20chips%2C%20memory%29%3A%0AModel%20or%20workload%3A%0A)
 
 ## Install
 
@@ -82,10 +98,8 @@ You are responsible for the safe use of this model with a real robot.
 
 ## License
 
-NukeTorch N is free for personal use, schools and universities, and businesses and other organizations (not government entities or international organizations) that with their affiliates have less than US$10 million in revenue and fewer than 250 people, on up to 250 machines, each working alone. Everyone else may evaluate it for 30 days, then needs a commercial license: contact@nuketorch.ai. You may not offer its function itself to others: access to its API, or running, serving or fine-tuning models for them. Terms are in [LICENSE.md](https://github.com/NukeTorch/nuketorch/blob/n1.0.4/LICENSE.md).
+NukeTorch is free for personal use, schools and universities, and businesses and other organizations (not government entities or international organizations) that with their affiliates have less than US$10 million in revenue and fewer than 250 people, on up to 250 machines, each working alone. Everyone else may evaluate it for 30 days, then needs a commercial license: contact@nuketorch.ai. You may not offer its function itself to others: access to its API, or running, serving or fine-tuning models for them. Terms are in [LICENSE.md](https://github.com/NukeTorch/nuketorch/blob/n1.0.4/LICENSE.md).
 
 GR00T N1.7 is licensed by NVIDIA Corporation under the NVIDIA Open Model License. Built on NVIDIA Cosmos.
-
-Names of models and engines belong to their makers; their makers do not endorse NukeTorch.
 
 **Powered by NukeTorch** · https://nuketorch.ai · Back to [NukeTorch/nuketorch](https://github.com/NukeTorch/nuketorch)
